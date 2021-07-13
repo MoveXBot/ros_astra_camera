@@ -42,6 +42,7 @@
 #include <astra_camera/GetDeviceType.h>
 #include <astra_camera/GetCameraInfo.h>
 #include <cmath>
+#include <cv_bridge/cv_bridge.h>
 
 #define libuvc_VERSION (libuvc_VERSION_MAJOR * 10000 \
                       + libuvc_VERSION_MINOR * 100 \
@@ -355,28 +356,37 @@ void CameraDriver::ImageCallback(uvc_frame_t *frame) {
   if (device_type_init_ == true && astraWithUVC(device_type_no_))
   {
     // update cinfo
-    if (camera_info_init_ == true && camera_info_valid_ == true)
+    // if (camera_info_init_ == true && camera_info_valid_ == true)
+    // {
+    //   cinfo->height = image->height;
+    //   cinfo->width = image->width;
+    //   cinfo->distortion_model = camera_info_.distortion_model;
+    //   cinfo->D.resize(5, 0.0);
+    //   cinfo->D[4] = 0.0000000001;
+    //   // for (int i = 0; i < 5; i++)
+    //   // {
+    //   //   cinfo->D[i] = camera_info_.D[i];
+    //   // }
+    //   for (int i = 0; i < 9; i++)
+    //   {
+    //     cinfo->K[i] = camera_info_.K[i];
+    //     cinfo->R[i] = camera_info_.R[i];
+    //   }
+    //   cinfo->K[0] = (1 - uvc_flip_)*(camera_info_.K[0]) + (uvc_flip_)*(-camera_info_.K[0]);
+    //   cinfo->K[2] = (1 - uvc_flip_)*(camera_info_.K[2]) + (uvc_flip_)*(image->width - camera_info_.K[2]);
+    //   for (int i = 0; i < 12; i++)
+    //   {
+    //     cinfo->P[i] = camera_info_.P[i];
+    //   }
+    // }
+    if(uvc_flip_)
     {
-      cinfo->height = image->height;
-      cinfo->width = image->width;
-      cinfo->distortion_model = camera_info_.distortion_model;
-      cinfo->D.resize(5, 0.0);
-      cinfo->D[4] = 0.0000000001;
-      // for (int i = 0; i < 5; i++)
-      // {
-      //   cinfo->D[i] = camera_info_.D[i];
-      // }
-      for (int i = 0; i < 9; i++)
-      {
-        cinfo->K[i] = camera_info_.K[i];
-        cinfo->R[i] = camera_info_.R[i];
-      }
-      cinfo->K[0] = (1 - uvc_flip_)*(camera_info_.K[0]) + (uvc_flip_)*(-camera_info_.K[0]);
-      cinfo->K[2] = (1 - uvc_flip_)*(camera_info_.K[2]) + (uvc_flip_)*(image->width - camera_info_.K[2]);
-      for (int i = 0; i < 12; i++)
-      {
-        cinfo->P[i] = camera_info_.P[i];
-      }
+      // cinfo->K[0] = (1 - uvc_flip_)*(cinfo->K[0]) + (uvc_flip_)*(-cinfo->K[0]);
+      // cinfo->K[2] = (1 - uvc_flip_)*(cinfo->K[2]) + (uvc_flip_)*(cinfo->width - cinfo->K[2]);
+      cv_bridge::CvImagePtr cv_ptr;
+      cv_ptr = cv_bridge::toCvCopy(image, image->encoding);
+      cv::flip(cv_ptr->image, cv_ptr->image, 1);
+      image = cv_ptr->toImageMsg();
     }
     image->header.frame_id = ns_no_slash + "_rgb_optical_frame";
     cinfo->header.frame_id = ns_no_slash + "_rgb_optical_frame";

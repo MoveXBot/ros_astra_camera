@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(astra_camera)
 
-find_package(catkin REQUIRED camera_info_manager dynamic_reconfigure image_transport nodelet sensor_msgs roscpp message_generation)
+find_package(catkin REQUIRED camera_info_manager dynamic_reconfigure image_transport nodelet sensor_msgs roscpp message_generation cv_bridge)
 
 find_package(Boost REQUIRED COMPONENTS system thread)
 
@@ -185,6 +185,10 @@ install(FILES 56-orbbec-usb.rules
 )
 
 install(DIRECTORY scripts
+        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(DIRECTORY launch
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 

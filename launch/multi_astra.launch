@@ -3,13 +3,17 @@
        into the "camera" namespace, and it is prepended to tf frame ids. -->
   <arg name="camera"      default="camera"/>
   <arg name="publish_tf"  default="true"/>
-  <arg name="3d_sensor"   default="stereo_s_u3"/>  <!-- stereo_s_u3, astrapro, astra -->
+  <arg name="3d_sensor"   default="embedded_s"/>  <!-- stereo_s_u3, astrapro, astra -->
 
-  <arg name="device_1_prefix"   default="01"/>
-  <arg name="device_2_prefix"   default="02"/>
-  <arg name="device_1_id"       default="AY053930173"/>
-  <arg name="device_2_id"       default="AY053930032"/>
-  <arg name="has_uvc_serial"    default="true"/>
+  <arg name="device_0_prefix"   default="0"/>
+  <arg name="device_1_prefix"   default="1"/>
+  <arg name="device_2_prefix"   default="2"/>
+  <arg name="device_3_prefix"   default="3"/>
+  <arg name="device_0_id"       value="$(env CAMERA_0_ID)"/>
+  <arg name="device_1_id"       value="$(env CAMERA_1_ID)"/>
+  <arg name="device_2_id"       value="$(env CAMERA_2_ID)"/>
+  <arg name="device_3_id"       value="$(env CAMERA_3_ID)"/>
+  <arg name="has_uvc_serial"    default="false"/>
 
   <!-- Factory-calibrated depth registration -->
   <arg name="depth_registration"              default="false"/>
@@ -20,7 +24,7 @@
   <arg name="rgb_processing"                  default="false"/>
   <arg name="ir_processing"                   default="false"/>
   <arg name="depth_processing"                default="true"/>
-  <arg name="depth_registered_processing"     default="false"/>
+  <arg name="depth_registered_processing"     default="true"/>
   <arg name="disparity_processing"            default="false"/>
   <arg name="disparity_registered_processing" default="false"/>
 
@@ -28,11 +32,34 @@
   <arg name="num_worker_threads" default="4" />
 
   <include file="$(find astra_camera)/launch/$(arg 3d_sensor).launch">
+    <arg name="camera"                          value="$(arg camera)_$(arg device_0_prefix)"/>
+    <arg name="device_id"                       value="$(arg device_0_id)"/>
+    <arg name="enable_rgb"                      value="false"/>
+    <arg name="uvc_serial"                      value="$(arg device_0_id)" if="$(eval has_uvc_serial == true)"/>
+    <arg name="bootorder"                       value="1"/>
+    <arg name="devnums"                         value="4"/>
+    <arg name="publish_tf"                      value="$(arg publish_tf)"/>
+    <arg name="depth_registration"              value="$(arg depth_registration)"/>
+    <arg name="num_worker_threads"              value="$(arg num_worker_threads)" />
+    <!-- add index if uvc does not have serial -->
+    <!--<arg name="index"                           value="0"/>-->
+
+    <!-- Processing Modules -->
+    <arg name="rgb_processing"                  value="$(arg rgb_processing)"/>
+    <arg name="ir_processing"                   value="$(arg ir_processing)"/>
+    <arg name="depth_processing"                value="$(arg depth_processing)"/>
+    <arg name="depth_registered_processing"     value="$(arg depth_registered_processing)"/>
+    <arg name="disparity_processing"            value="$(arg disparity_processing)"/>
+    <arg name="disparity_registered_processing" value="$(arg disparity_registered_processing)"/>
+  </include>
+
+  <include file="$(find astra_camera)/launch/$(arg 3d_sensor).launch">
     <arg name="camera"                          value="$(arg camera)_$(arg device_1_prefix)"/>
     <arg name="device_id"                       value="$(arg device_1_id)"/>
+    <arg name="enable_rgb"                      value="true"/>
     <arg name="uvc_serial"                      value="$(arg device_1_id)" if="$(eval has_uvc_serial == true)"/>
-    <arg name="bootorder"                       value="1"/>
-    <arg name="devnums"                         value="2"/>
+    <arg name="bootorder"                       value="2"/>
+    <arg name="devnums"                         value="4"/>
     <arg name="publish_tf"                      value="$(arg publish_tf)"/>
     <arg name="depth_registration"              value="$(arg depth_registration)"/>
     <arg name="num_worker_threads"              value="$(arg num_worker_threads)" />
@@ -51,9 +78,32 @@
   <include file="$(find astra_camera)/launch/$(arg 3d_sensor).launch">
     <arg name="camera"                          value="$(arg camera)_$(arg device_2_prefix)"/>
     <arg name="device_id"                       value="$(arg device_2_id)"/>
+    <arg name="enable_rgb"                      value="false"/>
     <arg name="uvc_serial"                      value="$(arg device_2_id)" if="$(eval has_uvc_serial == true)"/>
-    <arg name="bootorder"                       value="2"/>
-    <arg name="devnums"                         value="2"/>
+    <arg name="bootorder"                       value="3"/>
+    <arg name="devnums"                         value="4"/>
+    <arg name="publish_tf"                      value="$(arg publish_tf)"/>
+    <arg name="depth_registration"              value="$(arg depth_registration)"/>
+    <arg name="num_worker_threads"              value="$(arg num_worker_threads)" />
+    <!-- add index if uvc does not have serial -->
+    <!--<arg name="index"                           value="1"/>-->
+
+    <!-- Processing Modules -->
+    <arg name="rgb_processing"                  value="$(arg rgb_processing)"/>
+    <arg name="ir_processing"                   value="$(arg ir_processing)"/>
+    <arg name="depth_processing"                value="$(arg depth_processing)"/>
+    <arg name="depth_registered_processing"     value="$(arg depth_registered_processing)"/>
+    <arg name="disparity_processing"            value="$(arg disparity_processing)"/>
+    <arg name="disparity_registered_processing" value="$(arg disparity_registered_processing)"/>
+  </include>
+
+  <include file="$(find astra_camera)/launch/$(arg 3d_sensor).launch">
+    <arg name="camera"                          value="$(arg camera)_$(arg device_3_prefix)"/>
+    <arg name="device_id"                       value="$(arg device_3_id)"/>
+    <arg name="enable_rgb"                      value="false"/>
+    <arg name="uvc_serial"                      value="$(arg device_3_id)" if="$(eval has_uvc_serial == true)"/>
+    <arg name="bootorder"                       value="4"/>
+    <arg name="devnums"                         value="4"/>
     <arg name="publish_tf"                      value="$(arg publish_tf)"/>
     <arg name="depth_registration"              value="$(arg depth_registration)"/>
     <arg name="num_worker_threads"              value="$(arg num_worker_threads)" />
