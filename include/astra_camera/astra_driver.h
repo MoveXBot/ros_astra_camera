@@ -82,6 +82,8 @@ private:
   typedef astra_camera::AstraConfig Config;
   typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
 
+  void IRSubTimer(const ros::TimerEvent& event);
+
   void newIRFrameCallback(sensor_msgs::ImagePtr image);
   void newColorFrameCallback(sensor_msgs::ImagePtr image);
   void newDepthFrameCallback(sensor_msgs::ImagePtr image);
@@ -139,6 +141,8 @@ private:
   boost::shared_ptr<AstraDevice> device_;
 
   std::string device_id_;
+
+  ros::Timer ir_sub_timer;
 
   /** \brief get_serial server*/
   ros::ServiceServer get_camera_info;

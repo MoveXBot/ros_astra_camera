@@ -240,6 +240,22 @@ void AstraDriver::advertiseROSTopics()
   {
     switch_ir_camera = nh_.advertiseService("switch_ir_camera", &AstraDriver::switchIRCameraCb, this);
   }
+
+  ir_sub_timer = nh_.createTimer(ros::Duration(10),&AstraDriver::IRSubTimer,this);
+}
+
+void AstraDriver::IRSubTimer(const ros::TimerEvent& event)
+{
+  if(device_->isIRStreamStarted())
+    return;
+  else
+  {
+    ROS_INFO("Starting IR stream.");
+    device_->startIRStream();
+    ros::Duration(1.0).sleep();
+    ROS_INFO("Stoping IR stream.");
+    device_->stopIRStream();
+  }
 }
 
 bool AstraDriver::getSerialCb(astra_camera::GetSerialRequest& req, astra_camera::GetSerialResponse& res)
@@ -645,6 +661,13 @@ void AstraDriver::newColorFrameCallback(sensor_msgs::ImagePtr image)
   }
 }
 
+inline size_t GetMapIndex(int x,int y,int max_x){
+  return y * max_x + x;
+}
+inline std::pair<int,int> GetMapCoorFromIndex(int index,int max_x){
+  return std::make_pair(index % max_x,index / max_x);
+}
+
 void AstraDriver::newDepthFrameCallback(sensor_msgs::ImagePtr image)
 {
   if ((++data_skip_depth_counter_)%data_skip_==0)
@@ -670,6 +693,18 @@ void AstraDriver::newDepthFrameCallback(sensor_msgs::ImagePtr image)
         for (unsigned int i = 0; i < image->width * image->height; ++i)
           if (data[i] != 0)
                 data[i] = static_cast<uint16_t>(data[i] * z_scaling_);
+      }
+
+      // if(pub_depth_.getTopic().substr(0,9) == "/camera_0")
+      {
+        uint16_t* data = reinterpret_cast<uint16_t*>(&image->data[0]);
+        for (unsigned int i = 0; i < image->width * image->height; ++i)
+          if (data[i] != 0)
+          {
+            std::pair<int,int> coor = GetMapCoorFromIndex(i,image->width);
+            if((coor.first > (image->width - 20) || coor.first < 5))
+              data[i] = 0;
+          }
       }
 
       sensor_msgs::CameraInfoPtr cam_info;
@@ -1258,7 +1293,7 @@ output_mode_enum = gen.enum([  gen.const(  "SXGA_30Hz", int_t, 1,  "1280x1024@30
   // 640*400_30Hz -> 320*220_10Hz
   video_mode.x_resolution_ = 320;
   video_mode.y_resolution_ = 200;
-  video_mode.frame_rate_ = 10;
+  video_mode.frame_rate_ = 15;
 
   video_modes_lookup_[13] = video_mode;
 
