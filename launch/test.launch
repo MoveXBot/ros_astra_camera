@@ -8,7 +8,7 @@
          "2@n"           : the nth device on USB bus 2, n starts from 1
          "2bc5/0401@1/6" : uri in format <vendor ID>/<product ID>@<bus number>/<device number>
          "15120410023"   : serial number -->
-  <arg name="device_id" default="AQCMA1200ZY" />
+  <arg name="device_id" default="AQCMA120145" />
   <arg name="bootorder" default="0" />
   <arg name="devnums" default="1" />
 
@@ -52,7 +52,7 @@
   <arg name="sw_registered_processing"        default="true" unless="$(arg depth_registration)" />
 
   <!-- Disable bond topics by default -->
-  <arg name="respawn" default="false" />
+  <arg name="respawn" default="true" />
 
   <arg name="index" default="0" />
 
@@ -75,6 +75,7 @@
       <param name="frame_rate" value="15"/>
 
       <param name="timestamp_method" value="start"/> <!-- start of frame -->
+      <param name="frame_id" value="$(arg rgb_frame_id)"/>
       <param name="camera_info_url" value="file:///home/movexbot/.ros/camera_info/camera.yaml"/>
 
       <!-- <param name="auto_exposure" value="3"/> --> <!-- use aperture_priority auto exposure -->

@@ -240,22 +240,48 @@ void AstraDriver::advertiseROSTopics()
   {
     switch_ir_camera = nh_.advertiseService("switch_ir_camera", &AstraDriver::switchIRCameraCb, this);
   }
-
-  ir_sub_timer = nh_.createTimer(ros::Duration(10),&AstraDriver::IRSubTimer,this);
+  
+  flag_have_received_ir_image_ = flag_ir_image_normal_ = false;
+  ir_sub_ = nh_.subscribe("ir/image", 1, &AstraDriver::IRImageCallback,this);
+  ir_sub_timer_ = nh_.createTimer(ros::Duration(1),&AstraDriver::IRSubTimer,this);
 }
 
 void AstraDriver::IRSubTimer(const ros::TimerEvent& event)
 {
+  if(!flag_ir_image_normal_)
+  {
+    if(flag_have_received_ir_image_)
+    {
+      ROS_INFO("have received ir image");
+      ir_sub_timer_.setPeriod(ros::Duration(10));
+      flag_ir_image_normal_ = true;
+    }
+    else
+    {
+      ROS_ERROR("con't get ir image");
+      system( (std::string("rosnode kill ") + nh_.resolveName("driver")).c_str());
+    }
+    return;
+  }
   if(device_->isIRStreamStarted())
     return;
   else
   {
-    ROS_INFO("Starting IR stream.");
-    device_->startIRStream();
-    ros::Duration(1.0).sleep();
-    ROS_INFO("Stoping IR stream.");
-    device_->stopIRStream();
+    // ROS_INFO("Starting IR stream.");
+    ir_sub_ = nh_.subscribe("ir/image", 1, &AstraDriver::IRImageCallback,this);
+    // device_->startIRStream();
+    // ros::Duration(1.0).sleep();
+    // ROS_INFO("Stoping IR stream.");
+    // device_->stopIRStream();
   }
+}
+
+void AstraDriver::IRImageCallback(const sensor_msgs::ImagePtr &image)
+{
+  ROS_INFO("new IR frame arrived");
+  if(!flag_have_received_ir_image_)
+    flag_have_received_ir_image_ = true;
+  ir_sub_.shutdown();
 }
 
 bool AstraDriver::getSerialCb(astra_camera::GetSerialRequest& req, astra_camera::GetSerialResponse& res)

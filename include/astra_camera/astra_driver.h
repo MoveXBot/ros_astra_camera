@@ -83,6 +83,7 @@ private:
   typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
 
   void IRSubTimer(const ros::TimerEvent& event);
+  void IRImageCallback(const sensor_msgs::ImagePtr &image);
 
   void newIRFrameCallback(sensor_msgs::ImagePtr image);
   void newColorFrameCallback(sensor_msgs::ImagePtr image);
@@ -142,7 +143,10 @@ private:
 
   std::string device_id_;
 
-  ros::Timer ir_sub_timer;
+  ros::Timer ir_sub_timer_;
+
+  ros::Subscriber ir_sub_;
+  bool flag_have_received_ir_image_,flag_ir_image_normal_;
 
   /** \brief get_serial server*/
   ros::ServiceServer get_camera_info;
