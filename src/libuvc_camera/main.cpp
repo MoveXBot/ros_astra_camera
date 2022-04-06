@@ -42,12 +42,12 @@ int main (int argc, char **argv) {
 
   libuvc_camera::CameraDriver driver(nh, priv_nh);
 
-  if (!driver.Start())
-    return -1;
+  // if (!driver.Start())
+  //   return -1;
 
   ros::spin();
 
-  driver.Stop();
+  // driver.Stop();
 
   return 0;
 }

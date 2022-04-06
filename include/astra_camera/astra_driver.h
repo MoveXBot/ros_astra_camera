@@ -135,6 +135,8 @@ private:
   void setColorVideoMode(const AstraVideoMode& color_video_mode);
   void setDepthVideoMode(const AstraVideoMode& depth_video_mode);
 
+  void ThreadResetCamera(void);
+
   ros::NodeHandle& nh_;
   ros::NodeHandle& pnh_;
 
@@ -144,9 +146,9 @@ private:
   std::string device_id_;
 
   ros::Timer ir_sub_timer_;
-
+  
   ros::Subscriber ir_sub_;
-  bool flag_have_received_ir_image_,flag_ir_image_normal_;
+  bool flag_have_received_ir_image_,flag_ir_image_normal_,flag_need_reset_camera_;
 
   /** \brief get_serial server*/
   ros::ServiceServer get_camera_info;

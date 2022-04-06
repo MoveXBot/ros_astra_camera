@@ -36,6 +36,9 @@ private:
     kStopped = 1,
     kRunning = 2,
   };
+  boost::mutex connect_mutex_;
+  void connectCb();
+  void disconnectCb();
 
   // Flags controlling whether the sensor needs to be stopped (or reopened) when changing settings
   static const int kReconfigureClose = 3; // Need to close and reopen sensor to change this setting

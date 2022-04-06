@@ -241,9 +241,30 @@ void AstraDriver::advertiseROSTopics()
     switch_ir_camera = nh_.advertiseService("switch_ir_camera", &AstraDriver::switchIRCameraCb, this);
   }
   
-  flag_have_received_ir_image_ = flag_ir_image_normal_ = false;
-  ir_sub_ = nh_.subscribe("ir/image", 1, &AstraDriver::IRImageCallback,this);
-  ir_sub_timer_ = nh_.createTimer(ros::Duration(1),&AstraDriver::IRSubTimer,this);
+  flag_have_received_ir_image_ = flag_ir_image_normal_ = flag_need_reset_camera_ = false;
+  boost::thread reset_camera_thread(&AstraDriver::ThreadResetCamera,this);
+  reset_camera_thread.detach();
+  // ir_sub_ = nh_.subscribe("ir/image", 1, &AstraDriver::IRImageCallback,this);
+  // ir_sub_timer_ = nh_.createTimer(ros::Duration(1),&AstraDriver::IRSubTimer,this);
+}
+
+void AstraDriver::ThreadResetCamera(void)
+{
+  ros::Rate loop(10);
+  while (ros::ok())
+  {
+    if(flag_need_reset_camera_)
+    {
+      ROS_ERROR("reset camera...");
+      boost::shared_ptr<const sensor_msgs::Image> msg = ros::topic::waitForMessage<sensor_msgs::Image>("ir/image",nh_ , ros::Duration(1));
+      if(msg)
+      {
+        ROS_ERROR("have reset camera done");
+        flag_need_reset_camera_ = false;
+      }
+    }
+    loop.sleep();
+  }
 }
 
 void AstraDriver::IRSubTimer(const ros::TimerEvent& event)
@@ -253,7 +274,7 @@ void AstraDriver::IRSubTimer(const ros::TimerEvent& event)
     if(flag_have_received_ir_image_)
     {
       ROS_INFO("have received ir image");
-      ir_sub_timer_.setPeriod(ros::Duration(10));
+      ir_sub_timer_.setPeriod(ros::Duration(4));
       flag_ir_image_normal_ = true;
     }
     else
@@ -268,7 +289,8 @@ void AstraDriver::IRSubTimer(const ros::TimerEvent& event)
   else
   {
     // ROS_INFO("Starting IR stream.");
-    ir_sub_ = nh_.subscribe("ir/image", 1, &AstraDriver::IRImageCallback,this);
+    if(pub_depth_raw_.getNumSubscribers() > 0)
+      ir_sub_ = nh_.subscribe("ir/image", 1, &AstraDriver::IRImageCallback,this);
     // device_->startIRStream();
     // ros::Duration(1.0).sleep();
     // ROS_INFO("Stoping IR stream.");
@@ -640,6 +662,7 @@ void AstraDriver::depthConnectCb()
   projector_info_subscribers_ = pub_projector_info_.getNumSubscribers() > 0;
 
   bool need_depth = depth_subscribers_ || depth_raw_subscribers_;
+  need_depth = true;
 
   if (need_depth && !device_->isDepthStreamStarted())
   {
@@ -721,17 +744,27 @@ void AstraDriver::newDepthFrameCallback(sensor_msgs::ImagePtr image)
                 data[i] = static_cast<uint16_t>(data[i] * z_scaling_);
       }
 
+      int null_point_count = 0;
       // if(pub_depth_.getTopic().substr(0,9) == "/camera_0")
       {
         uint16_t* data = reinterpret_cast<uint16_t*>(&image->data[0]);
         for (unsigned int i = 0; i < image->width * image->height; ++i)
+        {
           if (data[i] != 0)
-          {
+          { 
             std::pair<int,int> coor = GetMapCoorFromIndex(i,image->width);
             if((coor.first > (image->width - 20) || coor.first < 5))
               data[i] = 0;
           }
+          else
+            null_point_count++;
+        }
       }
+      // if(null_point_count > 5000 && !flag_need_reset_camera_)
+      // {
+      //   ROS_INFO("pub_depth_.getTopic():%s,null_point_count:%d",pub_depth_.getTopic().c_str(),null_point_count);
+      //   flag_need_reset_camera_ = true;
+      // }
 
       sensor_msgs::CameraInfoPtr cam_info;
 
@@ -1316,7 +1349,7 @@ output_mode_enum = gen.enum([  gen.const(  "SXGA_30Hz", int_t, 1,  "1280x1024@30
 
   video_modes_lookup_[12] = video_mode;
 
-  // 640*400_30Hz -> 320*220_10Hz
+  // 640*400_30Hz -> 320*200_15Hz
   video_mode.x_resolution_ = 320;
   video_mode.y_resolution_ = 200;
   video_mode.frame_rate_ = 15;

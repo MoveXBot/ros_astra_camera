@@ -58,7 +58,7 @@ CameraDriver::CameraDriver(ros::NodeHandle nh, ros::NodeHandle priv_nh)
     config_server_(mutex_, priv_nh_),
     config_changed_(false),
     cinfo_manager_(nh) {
-  cam_pub_ = it_.advertiseCamera("image_raw", 1, false);
+  cam_pub_ = it_.advertiseCamera("image_raw", 1, boost::bind(&CameraDriver::connectCb, this), boost::bind(&CameraDriver::disconnectCb, this),boost::bind(&CameraDriver::connectCb, this), boost::bind(&CameraDriver::disconnectCb, this));
   ns = ros::this_node::getNamespace();
   device_type_client = nh_.serviceClient<astra_camera::GetDeviceType>(ns + "/get_device_type");
   camera_info_client = nh_.serviceClient<astra_camera::GetCameraInfo>(ns + "/get_camera_info");
@@ -90,6 +90,30 @@ CameraDriver::~CameraDriver() {
 
   if (ctx_)
     uvc_exit(ctx_);  // Destroys dev_, devh_, etc.
+}
+
+void CameraDriver::connectCb()
+{
+  ROS_INFO("connectCb: %s,%d",cam_pub_.getTopic().c_str(),cam_pub_.getNumSubscribers());
+  boost::mutex::scoped_lock lock(connect_mutex_);
+  if (cam_pub_.getNumSubscribers() > 0)
+  {
+    ROS_INFO("Got a subscriber, open camera!");
+    if(state_ == kInitial)
+      Start();
+  }
+}
+
+void CameraDriver::disconnectCb()
+{
+  ROS_INFO("disconnectCb: %s,%d",cam_pub_.getTopic().c_str(),cam_pub_.getNumSubscribers());
+  boost::mutex::scoped_lock lock(connect_mutex_);
+  if (cam_pub_.getNumSubscribers() == 0)
+  {
+    ROS_INFO("No subscibers,close camera!");
+    if(state_ != kInitial);
+      Stop();
+  }
 }
 
 bool CameraDriver::getUVCExposureCb(astra_camera::GetUVCExposureRequest& req, astra_camera::GetUVCExposureResponse& res)
@@ -167,7 +191,7 @@ bool CameraDriver::Start() {
 
   config_server_.setCallback(boost::bind(&CameraDriver::ReconfigureCallback, this, _1, _2));
 
-  return state_ == kRunning;
+  return /* state_ == kRunning */true;
 }
 
 void CameraDriver::Stop() {
@@ -400,6 +424,7 @@ void CameraDriver::ImageCallback(uvc_frame_t *frame) {
   cinfo->header.stamp = timestamp;
 
   cam_pub_.publish(image, cinfo);
+  // ROS_ERROR("pub..");
 
   if (config_changed_)
   {
@@ -494,6 +519,7 @@ enum uvc_frame_format CameraDriver::GetVideoMode(std::string vmode){
 };
 
 void CameraDriver::OpenCamera(UVCCameraConfig &new_config) {
+  ROS_INFO("open camera...");
   assert(state_ == kStopped);
 
   int vendor_id = strtol(new_config.vendor.c_str(), NULL, 0);
@@ -613,9 +639,11 @@ void CameraDriver::OpenCamera(UVCCameraConfig &new_config) {
   assert(rgb_frame_);
 
   state_ = kRunning;
+  ROS_INFO("open camera done");
 }
 
 void CameraDriver::CloseCamera() {
+  ROS_INFO("close camera...");
   assert(state_ == kRunning);
 
   uvc_close(devh_);
@@ -625,6 +653,7 @@ void CameraDriver::CloseCamera() {
   dev_ = NULL;
 
   state_ = kStopped;
+  ROS_INFO("close camera done");
 }
 
 };
