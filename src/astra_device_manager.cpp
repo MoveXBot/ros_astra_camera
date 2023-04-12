@@ -113,11 +113,15 @@ public:
 
     const AstraDeviceInfo device_info_wrapped = astra_convert(pInfo);
 
-    ROS_INFO("Device \"%s\" found.", pInfo->getUri());
-
+    ROS_INFO("Device \"%s\" found .", pInfo->getUri());
+    if(mConnectCb){
+       mConnectCb(device_info_wrapped);
+    }
     // make sure it does not exist in set before inserting
     device_set_.erase(device_info_wrapped);
     device_set_.insert(device_info_wrapped);
+   
+   
   }
 
 
@@ -128,7 +132,14 @@ public:
     ROS_WARN("Device \"%s\" disconnected\n", pInfo->getUri());
 
     const AstraDeviceInfo device_info_wrapped = astra_convert(pInfo);
+    if(mDisconnectCb){
+       mDisconnectCb(device_info_wrapped);
+    }
+    
+     
     device_set_.erase(device_info_wrapped);
+
+    
   }
 
   boost::shared_ptr<std::vector<std::string> > getConnectedDeviceURIs()
@@ -171,9 +182,17 @@ public:
 
     return device_set_.size();
   }
+  void setDeviceListenerCallback(const DeviceConnectCb& connect_cb, const DeviceDisconnectCb& disconnect_cb){
+    mConnectCb = connect_cb;
+    mDisconnectCb = disconnect_cb;
+  }
 
   boost::mutex device_mutex_;
   DeviceSet device_set_;
+private:
+  DeviceConnectCb mConnectCb;
+  DeviceDisconnectCb mDisconnectCb;
+     
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -187,11 +206,14 @@ AstraDeviceManager::AstraDeviceManager()
       THROW_OPENNI_EXCEPTION("Initialize failed\n%s\n", openni::OpenNI::getExtendedError());
 
   device_listener_ = boost::make_shared<AstraDeviceListener>();
-}
+
+  }
 
 AstraDeviceManager::~AstraDeviceManager()
 {
 }
+
+
 
 boost::shared_ptr<AstraDeviceManager> AstraDeviceManager::getSingelton()
 {
@@ -200,7 +222,9 @@ boost::shared_ptr<AstraDeviceManager> AstraDeviceManager::getSingelton()
 
   return singelton_;
 }
-
+void AstraDeviceManager::setDeviceCallback(const DeviceConnectCb& c1,const DeviceDisconnectCb& c2){
+    device_listener_->setDeviceListenerCallback(c1,c2);
+}
 boost::shared_ptr<std::vector<AstraDeviceInfo> > AstraDeviceManager::getConnectedDeviceInfos() const
 {
 return device_listener_->getConnectedDeviceInfos();

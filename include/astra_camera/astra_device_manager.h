@@ -40,9 +40,12 @@
 #include <vector>
 #include <string>
 #include <ostream>
+#include <functional>
 
 namespace astra_wrapper
 {
+using DeviceConnectCb = std::function<void(AstraDeviceInfo)>;
+using DeviceDisconnectCb = std::function<void(AstraDeviceInfo)>;
 
 class AstraDeviceListener;
 class AstraDevice;
@@ -63,6 +66,9 @@ public:
   boost::shared_ptr<AstraDevice> getDevice(const std::string& device_URI);
 
   std::string getSerial(const std::string& device_URI) const;
+
+  void setDeviceCallback(const DeviceConnectCb& c1,const DeviceDisconnectCb& c2);
+ 
 
 protected:
   boost::shared_ptr<AstraDeviceListener> device_listener_;

@@ -15,6 +15,8 @@
 #include <astra_camera/SetUVCGain.h>
 #include <astra_camera/GetUVCWhiteBalance.h>
 #include <astra_camera/SetUVCWhiteBalance.h>
+#include <astra_camera/SetAutoExposure.h>
+#include <astra_camera/SetAutoWhiteBalance.h>
 #include <astra_camera/astra_device_type.h>
 #include <astra_camera/UVCCameraConfig.h>
 
@@ -36,9 +38,6 @@ private:
     kStopped = 1,
     kRunning = 2,
   };
-  boost::mutex connect_mutex_;
-  void connectCb();
-  void disconnectCb();
 
   // Flags controlling whether the sensor needs to be stopped (or reopened) when changing settings
   static const int kReconfigureClose = 3; // Need to close and reopen sensor to change this setting
@@ -47,6 +46,8 @@ private:
 
   void OpenCamera(UVCCameraConfig &new_config);
   void CloseCamera();
+
+  void imageConnectCb();
 
   // Accept a reconfigure request from a client
   void ReconfigureCallback(UVCCameraConfig &config, uint32_t level);
@@ -72,9 +73,10 @@ private:
   bool setUVCGainCb(astra_camera::SetUVCGainRequest& req, astra_camera::SetUVCGainResponse& res);
   bool getUVCWhiteBalanceCb(astra_camera::GetUVCWhiteBalanceRequest& req, astra_camera::GetUVCWhiteBalanceResponse& res);
   bool setUVCWhiteBalanceCb(astra_camera::SetUVCWhiteBalanceRequest& req, astra_camera::SetUVCWhiteBalanceResponse& res);
+  bool setUVCAutoExposureCb(astra_camera::SetAutoExposureRequest& req, astra_camera::SetAutoExposureResponse& res);  
+  bool setUVCAutoWhiteBalanceCb(astra_camera::SetAutoWhiteBalanceRequest& req, astra_camera::SetAutoWhiteBalanceResponse& res);
 
   ros::NodeHandle nh_, priv_nh_;
-
   State state_;
   boost::recursive_mutex mutex_;
 
@@ -91,6 +93,7 @@ private:
   bool config_changed_;
 
   camera_info_manager::CameraInfoManager cinfo_manager_;
+  bool param_init_;
   std::string ns;
   std::string ns_no_slash;
 
@@ -100,6 +103,8 @@ private:
   ros::ServiceServer set_uvc_gain_server;
   ros::ServiceServer get_uvc_white_balance_server;
   ros::ServiceServer set_uvc_white_balance_server;
+  ros::ServiceServer set_uvc_auto_exposure_server;
+  ros::ServiceServer set_uvc_auto_white_balance_server;
 
   ros::ServiceClient device_type_client;
   ros::ServiceClient camera_info_client;

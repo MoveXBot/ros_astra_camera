@@ -150,8 +150,9 @@ void AstraFrameListener::onNewFrame(openni::VideoStream& stream)
         ROS_ERROR("Invalid image encoding");
         break;
     }
-
-    callback_(image);
+    if(callback_){
+       callback_(image);
+    }
   }
 
 }

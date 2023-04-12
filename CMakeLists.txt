@@ -7,6 +7,15 @@ find_package(Boost REQUIRED COMPONENTS system thread)
 
 find_package(libuvc REQUIRED)
 
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+if(COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has C++11 support.")
+else()
+    message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a newer C++ compiler.")
+endif()
+
 #MACHINE = $(shell uname -m)
 execute_process(COMMAND uname -m  OUTPUT_VARIABLE  MACHINES )
 execute_process(COMMAND getconf LONG_BIT  OUTPUT_VARIABLE  MACHINES_BIT )
@@ -15,15 +24,15 @@ MESSAGE(STATUS "ORRBEC Machine Bits : ${MACHINES_BIT}")
 IF ( (${MACHINES} MATCHES "x86_64") AND (${MACHINES_BIT} MATCHES "64")  )
       set(HOST_PLATFORM  "x64")
 # for schroot enviroment
-ELSEIF ( (${MACHINES} MATCHES "x86_64") AND (${MACHINES_BIT} MATCHES "32")  )
-      set(HOST_PLATFORM  "x86")
-ELSEIF ( ${MACHINES} MATCHES "x86" )
-ELSEIF ( ${MACHINES} MATCHES "x86" )
-      set(HOST_PLATFORM  "x86")
-ELSEIF ( ${MACHINES} MATCHES "i686" )
-      set(HOST_PLATFORM  "x86")
-ELSEIF ( ${MACHINES} MATCHES "i386" )
-      set(HOST_PLATFORM  "x86")
+#ELSEIF ( (${MACHINES} MATCHES "x86_64") AND (${MACHINES_BIT} MATCHES "32")  )
+#      set(HOST_PLATFORM  "x86")
+#ELSEIF ( ${MACHINES} MATCHES "x86" )
+#ELSEIF ( ${MACHINES} MATCHES "x86" )
+#      set(HOST_PLATFORM  "x86")
+#ELSEIF ( ${MACHINES} MATCHES "i686" )
+#      set(HOST_PLATFORM  "x86")
+#ELSEIF ( ${MACHINES} MATCHES "i386" )
+#      set(HOST_PLATFORM  "x86")
 ELSEIF ( ${MACHINES} MATCHES "arm" )
       set(HOST_PLATFORM  "arm")
 ELSEIF ( (${MACHINES} MATCHES "aarch64") AND (${MACHINES_BIT} MATCHES "64")  )
@@ -54,10 +63,17 @@ add_service_files(
   SetIRFlood.srv
   SetLaser.srv
   SetLDP.srv
+  SetFan.srv
   SetUVCExposure.srv
   ResetIRGain.srv
   ResetIRExposure.srv
   SwitchIRCamera.srv
+  SetDistortioncal.srv
+  SetAeEnable.srv
+  GetVersion.srv
+  SetAutoExposure.srv
+  SetAutoWhiteBalance.srv
+  SetMirror.srv
 )
 
 generate_messages(

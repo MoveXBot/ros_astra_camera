@@ -57,8 +57,14 @@ CameraDriver::CameraDriver(ros::NodeHandle nh, ros::NodeHandle priv_nh)
     it_(nh_),
     config_server_(mutex_, priv_nh_),
     config_changed_(false),
-    cinfo_manager_(nh) {
-  cam_pub_ = it_.advertiseCamera("image_raw", 1, boost::bind(&CameraDriver::connectCb, this), boost::bind(&CameraDriver::disconnectCb, this),boost::bind(&CameraDriver::connectCb, this), boost::bind(&CameraDriver::disconnectCb, this));
+    cinfo_manager_(nh),
+    param_init_(false) {
+  //cam_pub_ = it_.advertiseCamera("image_raw", 1, false);
+
+  image_transport::SubscriberStatusCallback itssc = boost::bind(&CameraDriver::imageConnectCb, this);
+    ros::SubscriberStatusCallback rssc = boost::bind(&CameraDriver::imageConnectCb, this);
+    cam_pub_ = it_.advertiseCamera("image_raw", 1, itssc, itssc, rssc, rssc);
+
   ns = ros::this_node::getNamespace();
   device_type_client = nh_.serviceClient<astra_camera::GetDeviceType>(ns + "/get_device_type");
   camera_info_client = nh_.serviceClient<astra_camera::GetCameraInfo>(ns + "/get_camera_info");
@@ -68,6 +74,8 @@ CameraDriver::CameraDriver(ros::NodeHandle nh, ros::NodeHandle priv_nh)
   set_uvc_gain_server = nh_.advertiseService("set_uvc_gain", &CameraDriver::setUVCGainCb, this);
   get_uvc_white_balance_server = nh_.advertiseService("get_uvc_white_balance", &CameraDriver::getUVCWhiteBalanceCb, this);
   set_uvc_white_balance_server = nh_.advertiseService("set_uvc_white_balance", &CameraDriver::setUVCWhiteBalanceCb, this);
+  set_uvc_auto_exposure_server = nh_.advertiseService("set_uvc_auto_exposure", &CameraDriver::setUVCAutoExposureCb, this);
+  set_uvc_auto_white_balance_server = nh_.advertiseService("set_uvc_auto_white_balance", &CameraDriver::setUVCAutoWhiteBalanceCb, this);
   device_type_init_ = false;
   camera_info_init_ = false;
   uvc_flip_ = 0;
@@ -92,28 +100,19 @@ CameraDriver::~CameraDriver() {
     uvc_exit(ctx_);  // Destroys dev_, devh_, etc.
 }
 
-void CameraDriver::connectCb()
-{
-  ROS_INFO("connectCb: %s,%d",cam_pub_.getTopic().c_str(),cam_pub_.getNumSubscribers());
-  boost::mutex::scoped_lock lock(connect_mutex_);
-  if (cam_pub_.getNumSubscribers() > 0)
-  {
-    ROS_INFO("Got a subscriber, open camera!");
-    if(state_ == kInitial)
-      Start();
-  }
-}
+void CameraDriver::imageConnectCb(){
 
-void CameraDriver::disconnectCb()
+int sub_num = cam_pub_.getNumSubscribers();
+ROS_WARN("sub num:%d",sub_num);
+if(sub_num == 1)
 {
-  ROS_INFO("disconnectCb: %s,%d",cam_pub_.getTopic().c_str(),cam_pub_.getNumSubscribers());
-  boost::mutex::scoped_lock lock(connect_mutex_);
-  if (cam_pub_.getNumSubscribers() == 0)
-  {
-    ROS_INFO("No subscibers,close camera!");
-    if(state_ != kInitial);
-      Stop();
-  }
+    Stop();
+
+    Start();
+}else if(sub_num == 0) {
+    Stop();
+}
+   
 }
 
 bool CameraDriver::getUVCExposureCb(astra_camera::GetUVCExposureRequest& req, astra_camera::GetUVCExposureResponse& res)
@@ -122,6 +121,8 @@ bool CameraDriver::getUVCExposureCb(astra_camera::GetUVCExposureRequest& req, as
   uvc_error_t err = uvc_get_exposure_abs(devh_, &expo, UVC_GET_CUR);
   res.exposure = expo;
   return (err == UVC_SUCCESS);
+
+
 }
 
 bool CameraDriver::setUVCExposureCb(astra_camera::SetUVCExposureRequest& req, astra_camera::SetUVCExposureResponse& res)
@@ -141,12 +142,25 @@ bool CameraDriver::setUVCExposureCb(astra_camera::SetUVCExposureRequest& req, as
   return (err == UVC_SUCCESS);
 }
 
+bool CameraDriver::setUVCAutoExposureCb(astra_camera::SetAutoExposureRequest& req, astra_camera::SetAutoExposureResponse& res)
+{
+  if(req.enable)
+  {
+    uvc_set_ae_mode(devh_, 2);
+  }
+  else
+  {
+    uvc_set_ae_mode(devh_, 1);
+  }
+  return true;
+}
+
 bool CameraDriver::getUVCGainCb(astra_camera::GetUVCGainRequest& req, astra_camera::GetUVCGainResponse& res)
 {
   uint16_t gain;
   uvc_error_t err = uvc_get_gain(devh_, &gain, UVC_GET_CUR);
   res.gain = gain;
-  return (err == UVC_SUCCESS);
+  return (err == UVC_SUCCESS); 
 }
 
 bool CameraDriver::setUVCGainCb(astra_camera::SetUVCGainRequest& req, astra_camera::SetUVCGainResponse& res)
@@ -175,8 +189,26 @@ bool CameraDriver::setUVCWhiteBalanceCb(astra_camera::SetUVCWhiteBalanceRequest&
   return (err == UVC_SUCCESS);
 }
 
+bool CameraDriver::setUVCAutoWhiteBalanceCb(astra_camera::SetAutoWhiteBalanceRequest& req, astra_camera::SetAutoWhiteBalanceResponse& res)
+{
+  if(req.enable)
+  {
+    uvc_set_white_balance_temperature_auto(devh_, 1);
+  }
+  else
+  {
+    uvc_set_white_balance_temperature_auto(devh_, 0);
+  }
+  return true;
+}
+
 bool CameraDriver::Start() {
-  assert(state_ == kInitial);
+  ROS_WARN("uvc color camera start");
+  //assert(state_ == kInitial);
+  if(state_ != kInitial){
+     ROS_WARN("please stop camera frist!");
+     return false;
+  }
 
   uvc_error_t err;
 
@@ -190,17 +222,24 @@ bool CameraDriver::Start() {
   state_ = kStopped;
 
   config_server_.setCallback(boost::bind(&CameraDriver::ReconfigureCallback, this, _1, _2));
-
-  return /* state_ == kRunning */true;
+  return state_ == kRunning;
 }
 
 void CameraDriver::Stop() {
   boost::recursive_mutex::scoped_lock(mutex_);
-
-  assert(state_ != kInitial);
+   ROS_WARN("uvc camera stop");
+  //assert(state_ != kInitial);
+  if(state_ == kInitial){
+    ROS_WARN("uvc camera is already stoped");
+    return;
+  }
 
   if (state_ == kRunning)
+  {
     CloseCamera();
+    ROS_WARN("CloseCamera");
+  }
+   
 
   assert(state_ == kStopped);
 
@@ -219,6 +258,7 @@ void CameraDriver::ReconfigureCallback(UVCCameraConfig &new_config, uint32_t lev
   }
 
   if (state_ == kStopped) {
+     ROS_WARN("open camera");
     OpenCamera(new_config);
   }
 
@@ -245,7 +285,7 @@ void CameraDriver::ReconfigureCallback(UVCCameraConfig &new_config, uint32_t lev
     PARAM_INT(iris_absolute, iris_abs, new_config.iris_absolute);
     PARAM_INT(brightness, brightness, new_config.brightness);
 #endif
-
+    
 
     if (new_config.pan_absolute != config_.pan_absolute || new_config.tilt_absolute != config_.tilt_absolute) {
       if (uvc_set_pantilt_abs(devh_, new_config.pan_absolute, new_config.tilt_absolute)) {
@@ -270,6 +310,7 @@ void CameraDriver::ReconfigureCallback(UVCCameraConfig &new_config, uint32_t lev
   }
 
   config_ = new_config;
+  ROS_INFO("new_config");
 }
 
 void CameraDriver::ImageCallback(uvc_frame_t *frame) {
@@ -350,9 +391,21 @@ void CameraDriver::ImageCallback(uvc_frame_t *frame) {
       {
         device_type_no_ = OB_ASTRA_PRO_NO;
       }
+      else if (strcmp(device_type_.c_str(), OB_ASTRA_PRO_PLUS) == 0)
+      {
+        device_type_no_ = OB_ASTRA_PRO_PLUS_NO;
+      }
       else if (strcmp(device_type_.c_str(), OB_STEREO_S_U3) == 0)
       {
         device_type_no_ = OB_STEREO_S_U3_NO;
+      }
+      else if (strcmp(device_type_.c_str(), OB_DABAI) == 0)
+      {
+        device_type_no_ = OB_DABAI_NO;
+      }
+      else if (strcmp(device_type_.c_str(), OB_ASTRA_PLUS) == 0)
+      {
+        device_type_no_ = OB_ASTRA_PLUS_NO;
       }
       else
       {
@@ -377,8 +430,8 @@ void CameraDriver::ImageCallback(uvc_frame_t *frame) {
   }
 
   sensor_msgs::CameraInfo::Ptr cinfo(new sensor_msgs::CameraInfo(cinfo_manager_.getCameraInfo()));
-  if (device_type_init_ == true && astraWithUVC(device_type_no_))
-  {
+  // if (device_type_init_ == true && astraWithUVC(device_type_no_))
+  // {
     // update cinfo
     // if (camera_info_init_ == true && camera_info_valid_ == true)
     // {
@@ -405,8 +458,6 @@ void CameraDriver::ImageCallback(uvc_frame_t *frame) {
     // }
     if(uvc_flip_)
     {
-      // cinfo->K[0] = (1 - uvc_flip_)*(cinfo->K[0]) + (uvc_flip_)*(-cinfo->K[0]);
-      // cinfo->K[2] = (1 - uvc_flip_)*(cinfo->K[2]) + (uvc_flip_)*(cinfo->width - cinfo->K[2]);
       cv_bridge::CvImagePtr cv_ptr;
       cv_ptr = cv_bridge::toCvCopy(image, image->encoding);
       cv::flip(cv_ptr->image, cv_ptr->image, 1);
@@ -414,18 +465,18 @@ void CameraDriver::ImageCallback(uvc_frame_t *frame) {
     }
     image->header.frame_id = ns_no_slash + "_rgb_optical_frame";
     cinfo->header.frame_id = ns_no_slash + "_rgb_optical_frame";
-  }
-  else
-  {
-    image->header.frame_id = config_.frame_id;
-    cinfo->header.frame_id = config_.frame_id;
-  }
+  // }
+  // else
+  // {
+  //   image->header.frame_id = config_.frame_id;
+  //   cinfo->header.frame_id = config_.frame_id;
+  // }
   image->header.stamp = timestamp;
   cinfo->header.stamp = timestamp;
 
-  cam_pub_.publish(image, cinfo);
-  // ROS_ERROR("pub..");
-
+   cam_pub_.publish(image, cinfo);
+   //uvc_perror(UVC_SUCCESS,"color streaning");
+  //ROS_WARN("color streaming");
   if (config_changed_)
   {
     config_server_.updateConfig(config_);
@@ -446,10 +497,11 @@ void CameraDriver::AutoControlsCallback(
   enum uvc_status_attribute status_attribute,
   void *data, size_t data_len) {
   boost::recursive_mutex::scoped_lock(mutex_);
-
-  printf("Controls callback. class: %d, event: %d, selector: %d, attr: %d, data_len: %zu\n",
+  char str[256];
+  sprintf(str,"Controls callback. class: %d, event: %d, selector: %d, attr: %d, data_len: %zu\n",
          status_class, event, selector, status_attribute, data_len);
-
+  
+  uvc_perror(UVC_SUCCESS,str);
   if (status_attribute == UVC_STATUS_ATTRIBUTE_VALUE_CHANGE) {
     switch (status_class) {
     case UVC_STATUS_CLASS_CONTROL_CAMERA: {
@@ -468,7 +520,7 @@ void CameraDriver::AutoControlsCallback(
       switch (selector) {
       case UVC_PU_WHITE_BALANCE_TEMPERATURE_CONTROL:
         uint8_t *data_char = (uint8_t*) data;
-        config_.white_balance_temperature =
+        config_.white_balance_temperature = 
           data_char[0] | (data_char[1] << 8);
         config_changed_ = true;
         break;
@@ -519,13 +571,13 @@ enum uvc_frame_format CameraDriver::GetVideoMode(std::string vmode){
 };
 
 void CameraDriver::OpenCamera(UVCCameraConfig &new_config) {
-  ROS_INFO("open camera...");
   assert(state_ == kStopped);
 
   int vendor_id = strtol(new_config.vendor.c_str(), NULL, 0);
   int product_id = strtol(new_config.product.c_str(), NULL, 0);
-
-  ROS_INFO("Opening camera with vendor=0x%x, product=0x%x, serial=\"%s\", index=%d",
+//  ROS_INFO_STREAM("------------>Opening camera with vendor=" << new_config.serial.c_str());
+//  ROS_INFO("OpenCamera OpenCamera OpenCamera ---- %s",new_config.serial.c_str());
+   ROS_WARN("Opening camera with vendor=0x%x, product=0x%x, serial=\"%s\", index=%d",
            vendor_id, product_id, new_config.serial.c_str(), new_config.index);
 
   uvc_device_t **devs;
@@ -533,6 +585,7 @@ void CameraDriver::OpenCamera(UVCCameraConfig &new_config) {
   // Implement missing index select behavior
   // https://github.com/ros-drivers/libuvc_ros/commit/4f30e9a0
 #if libuvc_VERSION     > 00005 /* version > 0.0.5 */
+ ROS_WARN("uvc_find_devices");
   uvc_error_t find_err = uvc_find_devices(
     ctx_, &devs,
     vendor_id,
@@ -563,6 +616,7 @@ void CameraDriver::OpenCamera(UVCCameraConfig &new_config) {
     return;
   }
 #else
+ROS_WARN("uvc_find_devices 2");
   uvc_error_t find_err = uvc_find_device(
     ctx_, &dev_,
     vendor_id,
@@ -614,6 +668,8 @@ void CameraDriver::OpenCamera(UVCCameraConfig &new_config) {
     new_config.width, new_config.height,
     new_config.frame_rate);
 
+    ROS_INFO("uvc mode: %dx%d@%f %s", new_config.width, new_config.height, new_config.frame_rate, new_config.video_mode.c_str());
+
   if (mode_err != UVC_SUCCESS) {
     uvc_perror(mode_err, "uvc_get_stream_ctrl_format_size");
     uvc_close(devh_);
@@ -639,11 +695,9 @@ void CameraDriver::OpenCamera(UVCCameraConfig &new_config) {
   assert(rgb_frame_);
 
   state_ = kRunning;
-  ROS_INFO("open camera done");
 }
 
 void CameraDriver::CloseCamera() {
-  ROS_INFO("close camera...");
   assert(state_ == kRunning);
 
   uvc_close(devh_);
@@ -653,7 +707,6 @@ void CameraDriver::CloseCamera() {
   dev_ = NULL;
 
   state_ = kStopped;
-  ROS_INFO("close camera done");
 }
 
 };

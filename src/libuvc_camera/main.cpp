@@ -36,6 +36,8 @@
 #include "libuvc_camera/camera_driver.h"
 
 int main (int argc, char **argv) {
+  ROS_INFO("uvc color camera node main");
+
   ros::init(argc, argv, "libuvc_camera");
   ros::NodeHandle nh;
   ros::NodeHandle priv_nh("~");
@@ -47,7 +49,7 @@ int main (int argc, char **argv) {
 
   ros::spin();
 
-  // driver.Stop();
+  driver.Stop();
 
   return 0;
 }

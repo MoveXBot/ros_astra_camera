@@ -30,6 +30,7 @@ This package supports ROS Kinetic and Melodic.
 5. Create astra udev rule
     ```sh
     roscd astra_camera
+    chmod 777 /scripts/create_udev_rules
     ./scripts/create_udev_rules
     ```
 
@@ -59,7 +60,18 @@ If you didn't add `source $YOUR_WORKSPACE/devel/setup.bash` to your `.bashrc`, r
 
 `roslaunch astra_camera stereo_s.launch`
 
+#### Use Hellay
+
+`Switch to super user:`
+
+`su`
+
+`roslaunch astra_camera Hellay.launch`
+
+
 You can use **rviz** or **image_view** to verify the outputs.
+
+
 
 ## Important Topics
 
@@ -68,7 +80,7 @@ You can use **rviz** or **image_view** to verify the outputs.
 * `*/image_rect_raw`: images rectified by intrinsic/extrinsic parameters
 * `*/camera_info`: camera intrinsic/extrinsic parameters
 * `/camera/depth/points`: point cloud without color information
-* `/camera/depth_registered/points`: xyzrgb point cloud (Currently, RGB-D regestration supports default resolution only)
+* `/camera/depth_registered/points`: xyzrgb point cloud
 
 ## Useful Services
 
